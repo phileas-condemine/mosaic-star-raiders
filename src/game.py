@@ -1,8 +1,9 @@
 from __future__ import annotations
 import math
 import random
+import sys
 import pygame
-from pygame.math import Vector2
+Vector2 = pygame.math.Vector2
 from . import settings as S
 from . import palette as C
 from .entities import Player, Enemy, Bullet, Particle, PowerUp
@@ -14,7 +15,11 @@ class Game:
     def __init__(self):
         pygame.init()
         pygame.font.init()
-        self.screen = pygame.display.set_mode(self._initial_window_size(), pygame.RESIZABLE)
+        fallback_size = (S.LOGICAL_WIDTH * S.SCALE, S.LOGICAL_HEIGHT * S.SCALE)
+        try:
+            self.screen = pygame.display.set_mode(self._initial_window_size(), pygame.RESIZABLE)
+        except Exception:
+            self.screen = pygame.display.set_mode(fallback_size)
         pygame.display.set_caption(f"{S.TITLE} {S.VERSION}")
         self.canvas = pygame.Surface((S.LOGICAL_WIDTH, S.LOGICAL_HEIGHT))
         self.clock = pygame.time.Clock()
@@ -28,10 +33,16 @@ class Game:
     def _initial_window_size(self) -> tuple[int, int]:
         # Fit the widest/tallest window that keeps the 16:9 logical
         # aspect ratio while leaving room for the OS title bar/taskbar.
+        # In the browser (pygbag/emscripten) the canvas is sized by the
+        # page, not the OS desktop, so skip the desktop-fit heuristic.
+        if sys.platform == "emscripten":
+            return (S.LOGICAL_WIDTH * S.SCALE, S.LOGICAL_HEIGHT * S.SCALE)
         try:
             info = pygame.display.Info()
             avail_w, avail_h = info.current_w, info.current_h
-        except pygame.error:
+            if avail_w <= 0 or avail_h <= 0:
+                raise ValueError("invalid desktop size")
+        except Exception:
             avail_w, avail_h = S.LOGICAL_WIDTH * S.SCALE, S.LOGICAL_HEIGHT * S.SCALE
         chrome_margin = 90
         scale = min(avail_w / S.LOGICAL_WIDTH, max(1, avail_h - chrome_margin) / S.LOGICAL_HEIGHT)

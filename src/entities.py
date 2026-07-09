@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import math
 import random
 import pygame
-from pygame.math import Vector2
+Vector2 = pygame.math.Vector2
 from . import palette as C
 from . import settings as S
 from .sprites import PLAYER_SHIP, DRONE, ENEMY_MATRICES, make_mosaic_surface
