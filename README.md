@@ -50,7 +50,7 @@ python main.py
 Depuis le dossier du projet :
 
 ```bash
-python -m pygbag --ume_block 0 .
+python -m pygbag --ume_block 0 --width 1920 --height 1080 .
 ```
 
 Puis ouvrir :
@@ -62,7 +62,7 @@ http://localhost:8000
 Build statique seul :
 
 ```bash
-python -m pygbag --build --ume_block 0 --title "Mosaic Star Raiders" --app_name "Mosaic Star Raiders" .
+python -m pygbag --build --ume_block 0 --width 1920 --height 1080 --title "Mosaic Star Raiders" --app_name "Mosaic Star Raiders" .
 ```
 
 Sur Windows PowerShell, tu peux aussi lancer :

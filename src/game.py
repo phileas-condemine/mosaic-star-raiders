@@ -31,12 +31,12 @@ class Game:
         self.reset(full=True)
 
     def _initial_window_size(self) -> tuple[int, int]:
-        # Fit the widest/tallest window that keeps the 16:9 logical
-        # aspect ratio while leaving room for the OS title bar/taskbar.
-        # In the browser (pygbag/emscripten) the canvas is sized by the
-        # page, not the OS desktop, so skip the desktop-fit heuristic.
-        if sys.platform == "emscripten":
-            return (S.LOGICAL_WIDTH * S.SCALE, S.LOGICAL_HEIGHT * S.SCALE)
+        # Fit the widest/tallest window that keeps the 16:9 logical aspect
+        # ratio. On the browser build, main.py has already resized the
+        # canvas to the full page before Game() is constructed, so
+        # pygame.display.Info() reports that real canvas size here and no
+        # extra chrome margin is needed (there's no OS title bar/taskbar).
+        is_web = sys.platform == "emscripten"
         try:
             info = pygame.display.Info()
             avail_w, avail_h = info.current_w, info.current_h
@@ -44,7 +44,7 @@ class Game:
                 raise ValueError("invalid desktop size")
         except Exception:
             avail_w, avail_h = S.LOGICAL_WIDTH * S.SCALE, S.LOGICAL_HEIGHT * S.SCALE
-        chrome_margin = 90
+        chrome_margin = 0 if is_web else 90
         scale = min(avail_w / S.LOGICAL_WIDTH, max(1, avail_h - chrome_margin) / S.LOGICAL_HEIGHT)
         scale = max(scale, 1.0)
         return (round(S.LOGICAL_WIDTH * scale), round(S.LOGICAL_HEIGHT * scale))
