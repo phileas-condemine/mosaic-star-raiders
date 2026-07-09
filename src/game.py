@@ -9,6 +9,7 @@ from . import palette as C
 from .entities import Player, Enemy, Bullet, Particle, PowerUp
 from .waves import spawn_wave, WAVE_BOOK
 from .sprites import draw_text, draw_bar
+from .autopilot import Autopilot
 
 
 class Game:
@@ -28,6 +29,10 @@ class Game:
         self.font_big = pygame.font.Font(None, 30)
         self.viewport = pygame.Rect(0, 0, *self.screen.get_size())
         self._update_viewport()
+        self.demo_mode = False
+        self.idle_timer = 0.0
+        self.demo_restart_delay = 0.0
+        self.autopilot = Autopilot()
         self.reset(full=True)
 
     def _initial_window_size(self) -> tuple[int, int]:
@@ -91,6 +96,33 @@ class Game:
         self.reset(full=False)
         self.state = "playing"
 
+    def start_demo(self):
+        self.reset(full=False)
+        self.state = "demo"
+        self.demo_mode = True
+        self.autopilot = Autopilot()
+        self.idle_timer = 0.0
+
+    def exit_demo(self):
+        self.demo_mode = False
+        self.reset(full=True)
+        self.idle_timer = 0.0
+
+    def _enter_end_state(self, name: str):
+        self.state = name
+        if self.demo_mode:
+            self.demo_restart_delay = 3.0
+
+    def use_bomb(self):
+        self.player.bombs -= 1
+        self.enemy_bullets.clear()
+        for e in list(self.enemies):
+            e.hit(3)
+            self.add_particles(e.pos.x, e.pos.y, C.ORANGE, 6, 70)
+        if self.boss:
+            self.boss.hit(18)
+        self.explode_big(self.player.pos.x, self.player.pos.y - 30, [C.ORANGE, C.YELLOW, C.WHITE])
+
     def spawn_next_wave(self):
         self.enemy_bullets.clear()
         self.enemies, self.boss, self.wave_title = spawn_wave(self.wave_index, self.rank)
@@ -134,8 +166,12 @@ class Game:
                 self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
                 self._update_viewport()
             elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_RETURN, pygame.K_SPACE) and self.state in ("title", "gameover", "victory"):
+                if self.state == "demo":
+                    self.exit_demo()
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and self.state in ("title", "gameover", "victory"):
                     self.start()
+                elif event.key == pygame.K_i and self.state == "title":
+                    self.start_demo()
                 elif event.key == pygame.K_ESCAPE:
                     if self.state == "playing":
                         self.state = "paused"
@@ -144,14 +180,9 @@ class Game:
                 elif event.key == pygame.K_r and self.state in ("playing", "paused"):
                     self.start()
                 elif event.key == pygame.K_b and self.state == "playing" and self.player.bombs > 0:
-                    self.player.bombs -= 1
-                    self.enemy_bullets.clear()
-                    for e in list(self.enemies):
-                        e.hit(3)
-                        self.add_particles(e.pos.x, e.pos.y, C.ORANGE, 6, 70)
-                    if self.boss:
-                        self.boss.hit(18)
-                    self.explode_big(self.player.pos.x, self.player.pos.y - 30, [C.ORANGE, C.YELLOW, C.WHITE])
+                    self.use_bomb()
+                if self.state == "title":
+                    self.idle_timer = 0.0
         return events
 
     def update_background(self, dt):
@@ -175,9 +206,15 @@ class Game:
             pygame.draw.rect(self.canvas, color, (int(x), int(y), size, size))
 
     def update_playing(self, dt):
-        keys = pygame.key.get_pressed()
+        if self.state == "demo":
+            keys, want_shoot, want_bomb = self.autopilot.decide(self, dt)
+            if want_bomb and self.player.bombs > 0:
+                self.use_bomb()
+        else:
+            keys = pygame.key.get_pressed()
+            want_shoot = keys[pygame.K_SPACE] or keys[pygame.K_x] or keys[pygame.K_j]
         self.player.update(dt, keys)
-        if keys[pygame.K_SPACE] or keys[pygame.K_x] or keys[pygame.K_j]:
+        if want_shoot:
             if len(self.player_bullets) < S.MAX_PLAYER_BULLETS:
                 self.player_bullets.extend(self.player.shoot())
 
@@ -218,7 +255,7 @@ class Game:
                 self.boss = None
                 self.next_wave_delay = 2.2
                 if self.bosses_killed >= 3:
-                    self.state = "victory"
+                    self._enter_end_state("victory")
 
         self.handle_collisions()
 
@@ -237,12 +274,12 @@ class Game:
         self.shake = max(0.0, self.shake - dt)
         self.flash = max(0.0, self.flash - dt)
 
-        if not self.enemies and self.boss is None and self.state == "playing" and self.next_wave_delay <= 0:
+        if not self.enemies and self.boss is None and self.state in ("playing", "demo") and self.next_wave_delay <= 0:
             self.next_wave_delay = 0.7
             self.spawn_next_wave()
 
         if self.player.lives <= 0:
-            self.state = "gameover"
+            self._enter_end_state("gameover")
 
     def handle_collisions(self):
         for b in list(self.player_bullets):
@@ -336,6 +373,10 @@ class Game:
         if self.player.magnet > 0:
             draw_text(self.canvas, self.font, "MAGNET", round(w * 0.5438), 15, C.CYAN)
 
+    def draw_demo_overlay(self):
+        if int(self.t * 2) % 2 == 0:
+            draw_text(self.canvas, self.font, "MODE DEMO (IA) - Appuyez sur une touche", S.LOGICAL_WIDTH // 2, S.LOGICAL_HEIGHT - 10, C.YELLOW, center=True)
+
     def draw_title(self):
         self.draw_background()
         draw_text(self.canvas, self.font_big, "MOSAIC", S.LOGICAL_WIDTH // 2, 48, C.CYAN, center=True)
@@ -345,10 +386,11 @@ class Game:
             "Fleches/WASD/ZQSD : bouger",
             "ESPACE / X / J : tirer",
             "B : bombe   ESC : pause   R : restart",
+            "I : mode demo (IA aux commandes)",
             "Entree ou Espace pour lancer",
         ]
         for i, line in enumerate(lines):
-            draw_text(self.canvas, self.font, line, S.LOGICAL_WIDTH // 2, 132 + i * 14, C.GREY if i < 3 else C.YELLOW, center=True)
+            draw_text(self.canvas, self.font, line, S.LOGICAL_WIDTH // 2, 132 + i * 14, C.GREY if i < len(lines) - 1 else C.YELLOW, center=True)
         self.draw_mini_mosaic_logo()
 
     def draw_mini_mosaic_logo(self):
@@ -385,13 +427,21 @@ class Game:
         elif self.state == "playing":
             self.draw_background()
             self.draw_playing()
+        elif self.state == "demo":
+            self.draw_background()
+            self.draw_playing()
+            self.draw_demo_overlay()
         elif self.state == "paused":
             self.draw_background()
             self.draw_pause()
         elif self.state == "gameover":
             self.draw_end_screen("GAME OVER", "la mosaique t'a submerge", C.RED)
+            if self.demo_mode:
+                self.draw_demo_overlay()
         elif self.state == "victory":
             self.draw_end_screen("VICTOIRE", "les 100 points sont neutralises", C.GREEN)
+            if self.demo_mode:
+                self.draw_demo_overlay()
 
         if self.flash > 0:
             f = pygame.Surface((S.LOGICAL_WIDTH, S.LOGICAL_HEIGHT), pygame.SRCALPHA)
@@ -417,11 +467,19 @@ class Game:
         self.t += dt
         self.update_background(dt)
         self.handle_events()
-        if self.state == "playing":
+        if self.state in ("playing", "demo"):
             self.update_playing(dt)
         elif self.state in ("title", "gameover", "victory"):
             for pt in self.particles:
                 pt.update(dt)
             self.particles = [p for p in self.particles if p.alive]
+            if self.state == "title" and not self.demo_mode:
+                self.idle_timer += dt
+                if self.idle_timer >= S.DEMO_IDLE_TIMEOUT:
+                    self.start_demo()
+            elif self.demo_mode:
+                self.demo_restart_delay -= dt
+                if self.demo_restart_delay <= 0:
+                    self.start_demo()
         self.render()
         return dt

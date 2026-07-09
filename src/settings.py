@@ -11,5 +11,7 @@ STAR_COUNT = 90
 MAX_PLAYER_BULLETS = 70
 MAX_ENEMY_BULLETS = 90
 
+DEMO_IDLE_TIMEOUT = 12.0  # seconds idle on the title screen before attract/demo mode kicks in
+
 TITLE = "Mosaic Star Raiders"
 VERSION = "0.1.0-mvp"
