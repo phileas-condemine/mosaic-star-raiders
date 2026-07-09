@@ -1,4 +1,5 @@
 import asyncio
+import pygame  # noqa: F401  (pygbag's dependency scanner only inspects main.py's top-level imports)
 from src.game import Game
 
 # Pygbag requires the game loop to be async-aware and to yield with

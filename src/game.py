@@ -3,7 +3,7 @@ import math
 import random
 import sys
 import pygame
-Vector2 = pygame.math.Vector2
+from .vec2 import Vector2
 from . import settings as S
 from . import palette as C
 from .entities import Player, Enemy, Bullet, Particle, PowerUp
