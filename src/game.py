@@ -33,6 +33,8 @@ class Game:
         self.idle_timer = 0.0
         self.demo_restart_delay = 0.0
         self.autopilot = Autopilot()
+        self.time_scale = 1.0
+        self._step_accumulator = 0.0
         self.reset(full=True)
 
     def _initial_window_size(self) -> tuple[int, int]:
@@ -107,6 +109,16 @@ class Game:
         self.demo_mode = False
         self.reset(full=True)
         self.idle_timer = 0.0
+        self.time_scale = 1.0
+        self._step_accumulator = 0.0
+
+    def _adjust_time_scale(self, key):
+        lo, hi = (S.TIME_SCALE_DEMO_MIN, S.TIME_SCALE_DEMO_MAX) if self.state == "demo" else (S.TIME_SCALE_PLAY_MIN, S.TIME_SCALE_PLAY_MAX)
+        if key == pygame.K_HOME:
+            self.time_scale = 1.0
+        else:
+            step = S.TIME_SCALE_STEP if key == pygame.K_PAGEUP else -S.TIME_SCALE_STEP
+            self.time_scale = round(max(lo, min(hi, self.time_scale + step)), 2)
 
     def _enter_end_state(self, name: str):
         self.state = name
@@ -166,7 +178,9 @@ class Game:
                 self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
                 self._update_viewport()
             elif event.type == pygame.KEYDOWN:
-                if self.state == "demo":
+                if event.key in (pygame.K_PAGEUP, pygame.K_PAGEDOWN, pygame.K_HOME) and self.state in ("playing", "paused", "demo"):
+                    self._adjust_time_scale(event.key)
+                elif self.state == "demo":
                     self.exit_demo()
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and self.state in ("title", "gameover", "victory"):
                     self.start()
@@ -372,10 +386,13 @@ class Game:
             draw_bar(self.canvas, pygame.Rect(round(w * 0.35), 16, 54, 4), self.player.shield / 12, C.GREEN)
         if self.player.magnet > 0:
             draw_text(self.canvas, self.font, "MAGNET", round(w * 0.5438), 15, C.CYAN)
+        if self.time_scale != 1.0:
+            draw_text(self.canvas, self.font, f"x{self.time_scale:.1f}", w - 34, 3, C.YELLOW)
 
     def draw_demo_overlay(self):
         if int(self.t * 2) % 2 == 0:
             draw_text(self.canvas, self.font, "MODE DEMO (IA) - Appuyez sur une touche", S.LOGICAL_WIDTH // 2, S.LOGICAL_HEIGHT - 10, C.YELLOW, center=True)
+        draw_text(self.canvas, self.font, f"Vitesse x{self.time_scale:.1f}  (PageUp/PageDown, Home=x1)", S.LOGICAL_WIDTH // 2, S.LOGICAL_HEIGHT - 20, C.CYAN, center=True)
 
     def draw_title(self):
         self.draw_background()
@@ -387,6 +404,7 @@ class Game:
             "ESPACE / X / J : tirer",
             "B : bombe   ESC : pause   R : restart",
             "I : mode demo (IA aux commandes)",
+            "PageUp/PageDown : vitesse (x2 en jeu, x5 en demo)",
             "Entree ou Espace pour lancer",
         ]
         for i, line in enumerate(lines):
@@ -464,22 +482,36 @@ class Game:
 
     def tick(self) -> float:
         dt = min(0.033, self.clock.tick(S.FPS) / 1000.0)
-        self.t += dt
-        self.update_background(dt)
         self.handle_events()
         if self.state in ("playing", "demo"):
-            self.update_playing(dt)
-        elif self.state in ("title", "gameover", "victory"):
-            for pt in self.particles:
-                pt.update(dt)
-            self.particles = [p for p in self.particles if p.alive]
-            if self.state == "title" and not self.demo_mode:
-                self.idle_timer += dt
-                if self.idle_timer >= S.DEMO_IDLE_TIMEOUT:
-                    self.start_demo()
-            elif self.demo_mode:
-                self.demo_restart_delay -= dt
-                if self.demo_restart_delay <= 0:
-                    self.start_demo()
+            # Sub-step at a fixed dt so speeding up (time_scale > 1) runs more
+            # whole physics steps per rendered frame instead of one step with
+            # a huge dt (which would let fast bullets tunnel through the
+            # player). Slowing down (time_scale < 1) simply runs a step less
+            # often via the fractional accumulator.
+            self._step_accumulator += max(0.0, self.time_scale)
+            steps = int(self._step_accumulator)
+            self._step_accumulator -= steps
+            for _ in range(steps):
+                self.t += dt
+                self.update_background(dt)
+                self.update_playing(dt)
+                if self.state not in ("playing", "demo"):
+                    break
+        else:
+            self.t += dt
+            self.update_background(dt)
+            if self.state in ("title", "gameover", "victory"):
+                for pt in self.particles:
+                    pt.update(dt)
+                self.particles = [p for p in self.particles if p.alive]
+                if self.state == "title" and not self.demo_mode:
+                    self.idle_timer += dt
+                    if self.idle_timer >= S.DEMO_IDLE_TIMEOUT:
+                        self.start_demo()
+                elif self.demo_mode:
+                    self.demo_restart_delay -= dt
+                    if self.demo_restart_delay <= 0:
+                        self.start_demo()
         self.render()
         return dt

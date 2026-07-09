@@ -13,5 +13,11 @@ MAX_ENEMY_BULLETS = 90
 
 DEMO_IDLE_TIMEOUT = 12.0  # seconds idle on the title screen before attract/demo mode kicks in
 
+TIME_SCALE_STEP = 0.1
+TIME_SCALE_PLAY_MIN = 1.0   # real play can only speed up, never slow down
+TIME_SCALE_PLAY_MAX = 2.0
+TIME_SCALE_DEMO_MIN = 0.2   # slow motion for the AI demo
+TIME_SCALE_DEMO_MAX = 5.0   # fast-forward to watch the AI reach later bosses quickly
+
 TITLE = "Mosaic Star Raiders"
 VERSION = "0.1.0-mvp"
