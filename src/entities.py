@@ -6,7 +6,7 @@ import pygame
 from .vec2 import Vector2
 from . import palette as C
 from . import settings as S
-from .sprites import PLAYER_SHIP, DRONE, ENEMY_MATRICES, make_mosaic_surface
+from .sprites import PLAYER_SHIP, DRONE, ENEMY_MATRICES, INVADER_SKINS, BOSS_SKINS, make_mosaic_surface, make_pixel_surface
 
 
 @dataclass
@@ -241,8 +241,9 @@ class Player:
 
 
 class Enemy:
-    def __init__(self, kind: str, x: float, y: float, hp: int = 1, rank: int = 1):
+    def __init__(self, kind: str, x: float, y: float, hp: int = 1, rank: int = 1, skin: str | None = None):
         self.kind = kind
+        self.skin = skin
         self.pos = Vector2(x, y)
         self.spawn = Vector2(x, y)
         self.hp = hp
@@ -252,9 +253,13 @@ class Enemy:
         self.fire_cd = random.uniform(0.8, 3.0)
         self.dead = False
         self.score = {"tile": 10, "diver": 25, "splitter": 30, "mirror": 40, "builder": 45, "elite": 80}.get(kind, 10) * rank
-        colors = C.ENEMY_PALETTES.get(kind, C.ENEMY_PALETTES["tile"])
-        tile = 2 if kind != "elite" else 3
-        self.surface = make_mosaic_surface(ENEMY_MATRICES[kind], tile, colors)
+        if skin:
+            spec = INVADER_SKINS[skin]
+            self.surface = make_pixel_surface(spec["matrix"], spec["tile"], spec["palette"])
+        else:
+            colors = C.ENEMY_PALETTES.get(kind, C.ENEMY_PALETTES["tile"])
+            tile = 2 if kind != "elite" else 3
+            self.surface = make_mosaic_surface(ENEMY_MATRICES[kind], tile, colors)
         self.dive_target = Vector2(x, S.LOGICAL_HEIGHT + 20)
         self.diving = kind == "diver" and random.random() < 0.35
         self.armored = kind == "mirror"
@@ -329,24 +334,32 @@ class Enemy:
 
 
 class Boss:
-    def __init__(self, key: str, level: int):
+    def __init__(self, key: str, level: int, skin: str | None = None):
         from .sprites import BOSS_MATRICES
         self.key = key
         self.level = level
+        self.skin = skin
         self.names = {
             "medic": "LE MEDECIN COSMIQUE",
             "duo": "LE DUO STELLAIRE",
             "wall": "LE GRAND MUR",
         }
-        self.name = self.names.get(key, key.upper())
-        self.matrix = BOSS_MATRICES[key]
-        self.tile = 3 if key != "wall" else 2
-        palette = {
-            "medic": [C.WHITE, C.CYAN, C.BLUE, C.RED],
-            "duo": [C.BROWN, C.GOLD, C.WHITE, C.ORANGE],
-            "wall": [C.PURPLE, C.MAGENTA, C.CYAN, C.WHITE],
-        }[key]
-        self.surface = make_mosaic_surface(self.matrix, self.tile, palette)
+        if skin:
+            spec = BOSS_SKINS[skin]
+            self.name = spec["name"]
+            self.matrix = spec["matrix"]
+            self.tile = spec["tile"]
+            self.surface = make_pixel_surface(self.matrix, self.tile, spec["palette"])
+        else:
+            self.name = self.names.get(key, key.upper())
+            self.matrix = BOSS_MATRICES[key]
+            self.tile = 3 if key != "wall" else 2
+            palette = {
+                "medic": [C.WHITE, C.CYAN, C.BLUE, C.RED],
+                "duo": [C.BROWN, C.GOLD, C.WHITE, C.ORANGE],
+                "wall": [C.PURPLE, C.MAGENTA, C.CYAN, C.WHITE],
+            }[key]
+            self.surface = make_mosaic_surface(self.matrix, self.tile, palette)
         self.pos = Vector2(S.LOGICAL_WIDTH / 2, -40)
         self.target_y = 52 if key != "wall" else 44
         base_hp = {"medic": 70, "duo": 105, "wall": 145}[key]

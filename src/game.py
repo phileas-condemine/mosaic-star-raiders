@@ -268,7 +268,7 @@ class Game:
                 self.maybe_drop_powerup(self.boss.pos, boss=True)
                 self.boss = None
                 self.next_wave_delay = 2.2
-                if self.bosses_killed >= 3:
+                if self.bosses_killed >= 6:
                     self._enter_end_state("victory")
 
         self.handle_collisions()
