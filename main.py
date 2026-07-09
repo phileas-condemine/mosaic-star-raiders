@@ -40,10 +40,24 @@ async def _prime_web_canvas():
 
 
 async def main():
-    if sys.platform == "emscripten":
+    is_web = sys.platform == "emscripten"
+    if is_web:
         pygame.init()
         await _prime_web_canvas()
     game = Game()
+    if is_web:
+        # pygbag sizes the *visible* CSS box of the canvas from its
+        # width/height aspect ratio at the moment window_resize() runs.
+        # The first call (above, before Game() existed) only saw the
+        # small pre-init backing store, so it computed a wrong (roughly
+        # square) box. Now that Game() has resized the real backing
+        # store to our 16:9 canvas, call it again so the CSS box gets
+        # recomputed against the correct aspect ratio.
+        try:
+            import platform
+            platform.window.window_resize()
+        except Exception:
+            pass
     while game.state != "quit":
         game.tick()
         await asyncio.sleep(0)
