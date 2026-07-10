@@ -2,23 +2,33 @@
 
 MVP de shoot'em up rétro-moderne en Python/Pygame, conçu pour être jouable en local **et** dans le navigateur via **pygbag** + GitHub Pages.
 
-Le jeu est volontairement original : il s'inspire du plaisir arcade des fixed shooters / vertical shooters, avec une esthétique de mosaïque pixel-art procédurale. Aucun asset externe n'est nécessaire : les vaisseaux, ennemis, boss, tirs, étoiles, particules et power-ups sont générés par le code.
+Le jeu s'inspire du plaisir arcade des fixed shooters / vertical shooters, avec une esthétique de mosaïque pixel-art. La plupart des sprites sont générés par le code ; l'acte 2 ajoute en plus des reproductions fidèles, dessinées à la main à partir de photos, de vraies mosaïques en céramique de l'artiste de street art **Invader**, installées dans différentes villes du monde (voir [Galerie des ennemis](#galerie-des-ennemis)).
 
-## Fonctionnalités MVP
+## Fonctionnalités
 
 - Vaisseau jouable au clavier.
 - Rendu pixel-perfect en résolution logique 320×240, upscalé en 4×.
 - Fond spatial animé.
-- Vagues successives d'ennemis mosaïques.
-- Plusieurs familles d'ennemis : tile, diver, splitter, mirror, builder, elite.
-- Splitters qui se fragmentent.
-- Builders capables de réparer les ennemis proches.
-- Trois boss de type “100 points” : Médecin cosmique, Duo stellaire, Grand Mur.
+- 24 vagues réparties en 2 actes, 6 familles de comportement d'ennemis (tile, diver, splitter, mirror, builder, elite).
+- Splitters qui se fragmentent, builders capables de réparer les ennemis proches.
+- 6 boss “100 points” : 3 boss originaux (Médecin cosmique, Duo stellaire, Grand Mur) + 3 boss de l'acte 2 réutilisant les mêmes patterns d'attaque avec une nouvelle identité visuelle inspirée d'Invader.
 - Power-ups : spread shot, laser, drones, shield, bombes, réparation.
 - Bombe déclenchable au clavier.
+- Mode démo : une IA (recherche à horizon court sur les trajectoires de tirs) pilote le vaisseau, esquive, tire et ramasse les bonus. Se déclenche automatiquement après 12s d'inactivité sur l'écran-titre, ou avec la touche `I`.
+- Vitesse de jeu réglable (`PageUp`/`PageDown`/`Home`) : x1 à x2 en partie normale, x0.2 (ralenti) à x5 (avance rapide) en mode démo.
 - Score, combo, vies, HUD, pause, game over, victoire.
 - Compatible pygbag : boucle `async`, `await asyncio.sleep(0)` par frame.
 - Workflow GitHub Actions prêt pour GitHub Pages.
+
+## Galerie des ennemis
+
+![Galerie des ennemis de Mosaic Star Raiders](docs/enemies_sheet.png)
+
+Régénérable après toute modification de `src/sprites.py` avec :
+
+```bash
+python scripts/generate_enemy_sheet.py
+```
 
 ## Contrôles
 
@@ -30,6 +40,9 @@ Le jeu est volontairement original : il s'inspire du plaisir arcade des fixed sh
 | Pause | Échap |
 | Redémarrer pendant la partie | R |
 | Lancer / rejouer | Entrée ou Espace |
+| Mode démo (IA) depuis l'écran-titre | I |
+| Vitesse de jeu (±10%) | PageUp / PageDown |
+| Réinitialiser la vitesse (x1) | Home |
 
 ## Lancer en local avec Python
 
@@ -126,31 +139,29 @@ mosaic_shooter/
   requirements.txt
   README.md
   .github/workflows/pages.yml
+  docs/
+    enemies_sheet.png
   scripts/
     build_web.ps1
     run_web.ps1
     git_first_push.ps1
     build_web.sh
+    generate_enemy_sheet.py
   src/
     game.py
     entities.py
     waves.py
     sprites.py
+    autopilot.py
     palette.py
     settings.py
 ```
 
 ## Notes de design
 
-Le projet évite volontairement de copier un jeu ou des œuvres existantes. L'objectif est de garder :
+Le gameplay et le moteur sont originaux : le plaisir d'un shoot arcade lisible, une progression par vagues, des super pouvoirs immédiatement satisfaisants, des boss monumentaux, une identité visuelle de mosaïque spatiale. L'acte 2 assume en revanche une inspiration directe : ses ennemis et boss sont des hommages dessinés à la main à partir de photos de mosaïques réelles de l'artiste **Invader** (non affilié à ce projet), à des fins non commerciales.
 
-- le plaisir d'un shoot arcade lisible ;
-- une progression par vagues ;
-- des super pouvoirs immédiatement satisfaisants ;
-- des boss monumentaux ;
-- une identité visuelle de mosaïque spatiale.
-
-Les matrices de sprites sont faciles à modifier dans `src/sprites.py`. Les vagues sont définies dans `src/waves.py`. Les paramètres de résolution, vitesse et FPS sont dans `src/settings.py`.
+Les matrices de sprites sont faciles à modifier dans `src/sprites.py`. Les vagues sont définies dans `src/waves.py`. L'IA du mode démo est dans `src/autopilot.py`. Les paramètres de résolution, vitesse et FPS sont dans `src/settings.py`.
 
 ## Prochaines extensions possibles
 
